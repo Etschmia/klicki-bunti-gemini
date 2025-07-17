@@ -80,9 +80,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
                                 <Icon name="gemini" className="w-5 h-5 text-white" />
                             </div>
                         )}
-                        <div className={`max-w-2xl p-4 rounded-lg shadow-md ${msg.author === MessageAuthor.USER ? 'bg-blue-600/50' : 'bg-gray-700/50'}`}>
+                        <div className={`max-w-2xl p-4 rounded-lg shadow-md ${msg.author === MessageAuthor.USER ? 'bg-blue-600/50' : 'bg-gray-700/50'} prose prose-invert prose-sm max-w-none`}>
                             <ReactMarkdown
-                                className="prose prose-invert prose-sm max-w-none"
                                 components={{
                                     code({ node, inline, className, children, ...props }) {
                                         const match = /language-(\w+)/.exec(className || '');
