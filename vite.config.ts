@@ -14,6 +14,9 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, './'),
         }
+      },
+      server: {
+        open: true  // Öffnet automatisch den Browser mit der Local-URL
       }
     };
 });
