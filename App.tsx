@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, FileItem } from './types';
 import { useFileTree } from './hooks/useFileTree';
 import { generateResponseStream } from './services/geminiService';
@@ -29,6 +29,27 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
     const { fileTree, rootName, openDirectoryPicker, isLoading: isTreeLoading, error: treeError } = useFileTree();
     const [activeFile, setActiveFile] = useState<FileItem | null>(null);
     const [activeFileContent, setActiveFileContent] = useState<string | null>(null);
+    const isInitialMount = useRef(true);
+
+    useEffect(() => {
+        // On initial mount, rootName is null. When a directory is selected for the first time,
+        // we don't want to show a "context reset" message. We only want to show it on subsequent changes.
+        if (isInitialMount.current) {
+            // Once a directory is loaded for the first time, we can flip the ref.
+            if (rootName) {
+                isInitialMount.current = false;
+            }
+        } else if(rootName) {
+            // This runs when the directory is changed
+            setActiveFile(null);
+            setActiveFileContent(null);
+            setMessages(prev => [...prev, {
+                id: `dir-change-${Date.now()}`,
+                author: MessageAuthor.SYSTEM,
+                content: `Verzeichnis gewechselt zu **${rootName}**. Der aktive Dateikontext wurde zurückgesetzt. Wählen Sie bei Bedarf eine neue Datei aus.`
+            }]);
+        }
+    }, [rootName]);
 
     const handleFileClick = useCallback(async (file: FileItem) => {
         try {
