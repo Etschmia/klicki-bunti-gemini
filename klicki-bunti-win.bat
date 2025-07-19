@@ -20,8 +20,21 @@ echo Warte auf den Start des Servers...
 REM Warte eine Sekunde, bevor die Log-Datei erneut geprüft wird.
 timeout /t 1 >nul
 
+REM Debug: Zeige den aktuellen Inhalt der Log-Datei
+type "%LOGFILE%"
+
+REM ...existing code...
 REM Prüfe, ob die Log-Datei die Zeile mit "Local:" enthält.
-findstr /C:"Local:" "%LOGFILE%" >nul
+findstr "Local:" "%LOGFILE%" >nul
+if errorlevel 1 goto waitForServer
+
+echo Server gestartet. Extrahiere URL...
+
+REM Extrahiere die URL aus der Log-Datei (das 3. "Wort" in der Zeile mit "Local:").
+for /f "tokens=3" %%i in ('findstr "Local:" "%LOGFILE%"') do (
+    set "VITE_URL=%%i"
+)
+REM ...existing code...
 if errorlevel 1 goto waitForServer
 
 echo Server gestartet. Extrahiere URL...
@@ -35,7 +48,7 @@ del "%LOGFILE%" >nul 2>&1
 
 if defined VITE_URL (
     echo Öffne Browser mit der URL: %VITE_URL%
-    start "" "%VITE_URL%"
+    start msedge "%VITE_URL%"
 ) else (
     echo FEHLER: Die URL konnte nicht extrahiert werden. Bitte 'npm run dev' manuell starten.
 )
