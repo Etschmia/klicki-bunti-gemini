@@ -9,19 +9,17 @@ import FileTree from './components/FileTree';
 import { Icon } from './components/Icon';
 
 const findFileInTree = (item: FileItem, fileName: string): FileItem | null => {
+    // Handle the 'file' case first and exit.
     if (item.kind === 'file') {
-        if (item.name === fileName) {
-            return item;
-        }
-    } else {
-        // By using `else`, we explicitly handle the 'directory' case. This helps
-        // the TypeScript compiler correctly narrow the type of `item`.
-        if (item.children) {
-            for (const child of item.children) {
-                const found = findFileInTree(child, fileName);
-                if (found) {
-                    return found;
-                }
+        return item.name === fileName ? item : null;
+    }
+
+    // If we reach this point, TypeScript knows `item` must be a directory.
+    if (item.children) {
+        for (const child of item.children) {
+            const found = findFileInTree(child, fileName);
+            if (found) {
+                return found;
             }
         }
     }
