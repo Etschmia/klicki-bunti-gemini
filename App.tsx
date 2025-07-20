@@ -63,11 +63,11 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
                 content: `Kontext aktualisiert. Aktive Datei ist jetzt **${file.name}**. Ich werde den Inhalt dieser Datei bei meiner nächsten Antwort berücksichtigen.`
             }]);
         } catch (e) {
-            const error = e as Error;
+            const errorMessage = e instanceof Error ? e.message : String(e);
             setMessages(prev => [...prev, {
                 id: `file-error-${Date.now()}`,
                 author: MessageAuthor.SYSTEM,
-                content: `Fehler beim Lesen der Datei ${file.name}: ${error.message}`
+                content: `Fehler beim Lesen der Datei ${file.name}: ${errorMessage}`
             }]);
             setActiveFile(null);
             setActiveFileContent(null);
@@ -97,8 +97,8 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
                 setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: fullResponse } : msg));
             }
         } catch (e) {
-            const error = e as Error;
-            setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: `Entschuldigung, ein Fehler ist aufgetreten: ${error.message}` } : msg));
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: `Entschuldigung, ein Fehler ist aufgetreten: ${errorMessage}` } : msg));
         } finally {
             setIsLoading(false);
         }
