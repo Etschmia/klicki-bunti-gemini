@@ -8,6 +8,26 @@ import DirectoryPicker from './components/DirectoryPicker';
 import FileTree from './components/FileTree';
 import { Icon } from './components/Icon';
 
+const findFileInTree = (item: FileItem, fileName: string): FileItem | null => {
+    if (item.kind === 'file') {
+        if (item.name === fileName) {
+            return item;
+        }
+    } else {
+        // By using `else`, we explicitly handle the 'directory' case. This helps
+        // the TypeScript compiler correctly narrow the type of `item`.
+        if (item.children) {
+            for (const child of item.children) {
+                const found = findFileInTree(child, fileName);
+                if (found) {
+                    return found;
+                }
+            }
+        }
+    }
+    return null;
+};
+
 const App: React.FC = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([
         {
@@ -50,6 +70,15 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
             }]);
         }
     }, [rootName]);
+
+    useEffect(() => {
+        if (fileTree) {
+            const geminiMdFile = findFileInTree(fileTree, 'GEMINI.md');
+            if (geminiMdFile) {
+                handleFileClick(geminiMdFile);
+            }
+        }
+    }, [fileTree]); // Abhängigkeit von handleFileClick entfernt, um Endlosschleife zu vermeiden, wenn es neu erstellt wird.
 
     const handleFileClick = useCallback(async (file: FileItem) => {
         try {
@@ -106,7 +135,7 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
 
     const memoizedFileTree = useMemo(() => {
         return fileTree ? <FileTree item={fileTree} onFileClick={handleFileClick} activeFile={activeFile} /> : null;
-    }, [fileTree, handleFileClick, activeFile]);
+    }, [fileTree, activeFile, handleFileClick]);
 
     return (
         <div className="flex h-screen bg-gray-900 text-gray-200">
