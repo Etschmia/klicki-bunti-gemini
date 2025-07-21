@@ -1,6 +1,6 @@
 
 import { useState, useCallback } from 'react';
-import { FileSystemItem, DirectoryItem } from '../types';
+import { FileSystemItem, DirectoryItem, FileItem } from '../types';
 
 export const useFileTree = () => {
     const [directoryHandle, setDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
@@ -9,16 +9,24 @@ export const useFileTree = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const processDirectory = async (handle: FileSystemDirectoryHandle): Promise<DirectoryItem> => {
+    const processDirectory = async (handle: FileSystemDirectoryHandle, parentPath: string = ''): Promise<DirectoryItem> => {
+        const currentPath = parentPath ? `${parentPath}/${handle.name}` : handle.name;
         const children: FileSystemItem[] = [];
-        for await (const entry of handle.values()) {
+        // Typecast für handle auf any, damit .values() akzeptiert wird
+        for await (const entry of ((handle as any).values())) {
             if (entry.kind === 'directory') {
                 // Ignore node_modules and .git for performance and relevance
                 if (entry.name !== 'node_modules' && entry.name !== '.git') {
-                    children.push(await processDirectory(entry));
+                    children.push(await processDirectory(entry, currentPath));
                 }
             } else if (entry.kind === 'file') {
-                children.push({ kind: 'file', name: entry.name, handle: entry });
+                const fileItem: FileItem = {
+                    kind: 'file',
+                    name: entry.name,
+                    handle: entry,
+                    path: `${currentPath}/${entry.name}`
+                };
+                children.push(fileItem);
             }
         }
         // Sort directories first, then files, all alphabetically
@@ -29,7 +37,7 @@ export const useFileTree = () => {
             return a.kind === 'directory' ? -1 : 1;
         });
 
-        return { kind: 'directory', name: handle.name, handle, children };
+        return { kind: 'directory', name: handle.name, handle, children, path: currentPath };
     };
 
     const openDirectoryPicker = useCallback(async () => {
@@ -39,10 +47,12 @@ export const useFileTree = () => {
             if (!('showDirectoryPicker' in window)) {
                 throw new Error('Ihr Browser unterstützt die File System Access API nicht. Bitte verwenden Sie einen modernen Browser wie Chrome oder Edge.');
             }
-            const handle = await window.showDirectoryPicker();
+            // Typecast für showDirectoryPicker
+            const showDirectoryPicker = window.showDirectoryPicker as () => Promise<FileSystemDirectoryHandle>;
+            const handle = await showDirectoryPicker();
             setDirectoryHandle(handle);
             setRootName(handle.name);
-            const tree = await processDirectory(handle);
+            const tree = await processDirectory(handle); // parentPath ist default ''
             setFileTree(tree);
         } catch (e) {
             const err = e as Error;

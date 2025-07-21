@@ -15,6 +15,7 @@ export interface FileItem {
     kind: 'file';
     name: string;
     handle: FileSystemFileHandle;
+    path: string;
 }
 
 export interface DirectoryItem {
@@ -22,6 +23,7 @@ export interface DirectoryItem {
     name: string;
     handle: FileSystemDirectoryHandle;
     children: FileSystemItem[];
+    path: string;
 }
 
 export type FileSystemItem = FileItem | DirectoryItem;

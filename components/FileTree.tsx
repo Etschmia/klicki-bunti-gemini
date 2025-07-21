@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { FileItem } from '../types';
+import { FileSystemItem, FileItem, DirectoryItem } from '../types';
 import { Icon } from './Icon';
 
 interface FileTreeProps {
-    item: FileItem;
+    item: FileSystemItem;
     onFileClick: (file: FileItem) => void;
     activeFile: FileItem | null;
 }
@@ -24,7 +24,7 @@ const FileTree: React.FC<FileTreeProps> = ({ item, onFileClick, activeFile }) =>
     const handleFileClick = (e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent folder from toggling when a file is clicked
         if (!isDirectory) {
-            onFileClick(item);
+            onFileClick(item as FileItem);
         }
     };
 
@@ -42,7 +42,7 @@ const FileTree: React.FC<FileTreeProps> = ({ item, onFileClick, activeFile }) =>
             </div>
             {isDirectory && isOpen && (
                 <div className="pl-4 border-l border-gray-600/50">
-                    {item.children?.map(child => (
+                    {(item as DirectoryItem).children?.map((child: FileSystemItem) => (
                         <FileTree key={child.path} item={child} onFileClick={onFileClick} activeFile={activeFile} />
                     ))}
                 </div>

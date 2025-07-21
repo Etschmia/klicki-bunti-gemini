@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { ChatMessage, MessageAuthor, FileItem } from './types';
+import { ChatMessage, MessageAuthor, FileItem, FileSystemItem } from './types';
 import { useFileTree } from './hooks/useFileTree';
 import { generateResponseStream } from './services/geminiService';
 import ChatInterface from './components/ChatInterface';
@@ -8,14 +8,12 @@ import DirectoryPicker from './components/DirectoryPicker';
 import FileTree from './components/FileTree';
 import { Icon } from './components/Icon';
 
-const findFileInTree = (item: FileItem, fileName: string): FileItem | null => {
-    // Handle the 'file' case first and exit.
+const findFileInTree = (item: FileSystemItem, fileName: string): FileItem | null => {
     if (item.kind === 'file') {
         return item.name === fileName ? item : null;
     }
-
-    // If we reach this point, TypeScript knows `item` must be a directory.
-    if (item.children) {
+    // item ist DirectoryItem
+    if (item.kind === 'directory' && item.children) {
         for (const child of item.children) {
             const found = findFileInTree(child, fileName);
             if (found) {
