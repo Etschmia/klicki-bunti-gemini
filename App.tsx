@@ -1,5 +1,6 @@
+
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { ChatMessage, MessageAuthor, FileItem, DirectoryItem } from './types';
+import { ChatMessage, MessageAuthor, FileItem } from './types';
 import { useFileTree } from './hooks/useFileTree';
 import { generateResponseStream } from './services/geminiService';
 import ChatInterface from './components/ChatInterface';
@@ -7,9 +8,7 @@ import DirectoryPicker from './components/DirectoryPicker';
 import FileTree from './components/FileTree';
 import { Icon } from './components/Icon';
 
-type TreeItem = FileItem | DirectoryItem;
-
-const findFileInTree = (item: TreeItem, fileName: string): FileItem | null => {
+const findFileInTree = (item: FileItem, fileName: string): FileItem | null => {
     // Handle the 'file' case first and exit.
     if (item.kind === 'file') {
         return item.name === fileName ? item : null;
@@ -133,7 +132,7 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
     }, [isLoading, fileTree, activeFile, activeFileContent]);
 
     const memoizedFileTree = useMemo(() => {
-        return fileTree ? <FileTree item={fileTree as unknown as FileItem} onFileClick={handleFileClick} activeFile={activeFile} /> : null;
+        return fileTree ? <FileTree item={fileTree} onFileClick={handleFileClick} activeFile={activeFile} /> : null;
     }, [fileTree, activeFile, handleFileClick]);
 
     return (
