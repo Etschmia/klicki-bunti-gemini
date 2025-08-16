@@ -5,12 +5,6 @@ export enum MessageAuthor {
   SYSTEM = 'system',
 }
 
-export interface ChatMessage {
-  id: string;
-  author: MessageAuthor;
-  content: string;
-}
-
 export interface FileItem {
     kind: 'file';
     name: string;
@@ -27,3 +21,16 @@ export interface DirectoryItem {
 }
 
 export type FileSystemItem = FileItem | DirectoryItem;
+
+export interface FileChange {
+  filePath: string;
+  newContent: string;
+  type: 'create' | 'update';
+}
+
+export interface ChatMessage {
+  id: string;
+  author: MessageAuthor;
+  content: string;
+  fileChange?: FileChange; // Optional file change proposal
+}

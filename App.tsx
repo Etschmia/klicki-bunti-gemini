@@ -1,8 +1,9 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { ChatMessage, MessageAuthor, FileItem, FileSystemItem } from './types';
+import { ChatMessage, MessageAuthor, FileItem, FileSystemItem, FileChange } from './types';
 import { useFileTree } from './hooks/useFileTree';
 import { generateResponseStream } from './services/geminiService';
+import * as fileService from './services/fileService';
 import ChatInterface from './components/ChatInterface';
 import DirectoryPicker from './components/DirectoryPicker';
 import FileTree from './components/FileTree';
@@ -12,17 +13,33 @@ const findFileInTree = (item: FileSystemItem, fileName: string): FileItem | null
     if (item.kind === 'file') {
         return item.name === fileName ? item : null;
     }
-    // item ist DirectoryItem
     if (item.kind === 'directory' && item.children) {
         for (const child of item.children) {
             const found = findFileInTree(child, fileName);
-            if (found) {
-                return found;
-            }
+            if (found) return found;
         }
     }
     return null;
 };
+
+const parseFileChange = (response: string): { fileChange: FileChange | null, cleanedResponse: string } => {
+    const fileOpRegex = /```json:file-op\n([\s\S]+?)\n```/;
+    const match = response.match(fileOpRegex);
+
+    if (match && match[1]) {
+        try {
+            const fileChange = JSON.parse(match[1]) as FileChange;
+            const cleanedResponse = response.replace(fileOpRegex, '').trim();
+            return { fileChange, cleanedResponse };
+        } catch (error) {
+            console.error("Fehler beim Parsen des Dateioperations-JSON:", error);
+            return { fileChange: null, cleanedResponse: response };
+        }
+    }
+
+    return { fileChange: null, cleanedResponse: response };
+};
+
 
 const App: React.FC = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([
@@ -34,29 +51,23 @@ const App: React.FC = () => {
 Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
 
 **Erste Schritte:**
-1.  Klicken Sie auf **"Verzeichnis auswählen"**, um mir Kontext über Ihr Projekt zu geben.
+1.  Klicken Sie auf **"Verzeichnis auswählen"**, um mir Kontext über Ihr Projekt zu geben. Ich werde Lese- und Schreibzugriff anfordern.
 2.  Ich werde die Dateistruktur anzeigen. Klicken Sie auf eine Datei, um deren Inhalt zu meinem Kontext hinzuzufügen.
-3.  Stellen Sie mir eine Frage zu Ihrem Code!
+3.  Stellen Sie mir eine Frage zu Ihrem Code! Ich kann Ihnen auch beim Erstellen oder Ändern von Dateien helfen.
 
 *Hinweis: Diese App verwendet die moderne File System Access API Ihres Browsers, um sicher auf lokale Dateien zuzugreifen. Ihre Dateien verlassen Ihren Computer nicht, außer denen, die Sie aktiv als Kontext für eine Anfrage auswählen.*`
         }
     ]);
     const [isLoading, setIsLoading] = useState(false);
-    const { fileTree, rootName, openDirectoryPicker, isLoading: isTreeLoading, error: treeError } = useFileTree();
+    const { fileTree, rootName, openDirectoryPicker, isLoading: isTreeLoading, error: treeError, directoryHandle, refreshFileTree } = useFileTree();
     const [activeFile, setActiveFile] = useState<FileItem | null>(null);
     const [activeFileContent, setActiveFileContent] = useState<string | null>(null);
     const isInitialMount = useRef(true);
 
     useEffect(() => {
-        // On initial mount, rootName is null. When a directory is selected for the first time,
-        // we don't want to show a "context reset" message. We only want to show it on subsequent changes.
         if (isInitialMount.current) {
-            // Once a directory is loaded for the first time, we can flip the ref.
-            if (rootName) {
-                isInitialMount.current = false;
-            }
+            if (rootName) isInitialMount.current = false;
         } else if(rootName) {
-            // This runs when the directory is changed
             setActiveFile(null);
             setActiveFileContent(null);
             setMessages(prev => [...prev, {
@@ -70,11 +81,9 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
     useEffect(() => {
         if (fileTree) {
             const geminiMdFile = findFileInTree(fileTree, 'GEMINI.md');
-            if (geminiMdFile) {
-                handleFileClick(geminiMdFile);
-            }
+            if (geminiMdFile) handleFileClick(geminiMdFile);
         }
-    }, [fileTree]); // Abhängigkeit von handleFileClick entfernt, um Endlosschleife zu vermeiden, wenn es neu erstellt wird.
+    }, [fileTree]);
 
     const handleFileClick = useCallback(async (file: FileItem) => {
         try {
@@ -103,11 +112,7 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
         if (!prompt || isLoading) return;
 
         setIsLoading(true);
-        const userMessage: ChatMessage = {
-            id: `user-${Date.now()}`,
-            author: MessageAuthor.USER,
-            content: prompt,
-        };
+        const userMessage: ChatMessage = { id: `user-${Date.now()}`, author: MessageAuthor.USER, content: prompt };
         const aiMessageId = `ai-${Date.now()}`;
         setMessages(prev => [...prev, userMessage, { id: aiMessageId, author: MessageAuthor.AI, content: '...' }]);
 
@@ -121,6 +126,11 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
                 fullResponse += chunk;
                 setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: fullResponse } : msg));
             }
+
+            const { fileChange, cleanedResponse } = parseFileChange(fullResponse);
+
+            setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: cleanedResponse, fileChange: fileChange } : msg));
+
         } catch (e) {
             const errorMessage = e instanceof Error ? e.message : String(e);
             setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: `Entschuldigung, ein Fehler ist aufgetreten: ${errorMessage}` } : msg));
@@ -128,6 +138,57 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
             setIsLoading(false);
         }
     }, [isLoading, fileTree, activeFile, activeFileContent]);
+
+    const handleAcceptFileChange = useCallback(async (change: FileChange) => {
+        if (!directoryHandle || !rootName) return;
+        setIsLoading(true);
+
+        // Pfad bereinigen: Entfernt führende/nachfolgende Leerzeichen und das Stammverzeichnis, falls vorhanden.
+        let cleanPath = change.filePath.trim();
+        const rootPrefix = `${rootName}/`;
+        if (cleanPath.startsWith(rootPrefix)) {
+            cleanPath = cleanPath.substring(rootPrefix.length);
+        }
+
+        try {
+            if (change.type === 'create') {
+                const parentPath = cleanPath.substring(0, cleanPath.lastIndexOf('/'));
+                const parentHandle = parentPath ? await fileService.getHandleForPath(directoryHandle, parentPath) : directoryHandle;
+                if (parentHandle?.kind !== 'directory') {
+                    throw new Error("Übergeordneter Pfad ist kein Verzeichnis.");
+                }
+
+                const fileName = cleanPath.substring(cleanPath.lastIndexOf('/') + 1);
+                await fileService.createFile(parentHandle, fileName, change.newContent);
+
+            } else if (change.type === 'update') {
+                const fileHandle = await fileService.getHandleForPath(directoryHandle, cleanPath);
+                if (fileHandle?.kind !== 'file') {
+                    throw new Error("Zieldatei nicht gefunden oder ist ein Verzeichnis.");
+                }
+                await fileService.updateFile(fileHandle, change.newContent);
+            }
+
+            await refreshFileTree();
+            setMessages(prev => {
+                const newMessages = prev.map(m => ({ ...m, fileChange: undefined }));
+                return [...newMessages, { id: `sys-${Date.now()}`, author: MessageAuthor.SYSTEM, content: `Datei **${change.filePath}** erfolgreich ${change.type === 'create' ? 'erstellt' : 'geändert'}.` }];
+            });
+
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            setMessages(prev => [...prev, { id: `sys-err-${Date.now()}`, author: MessageAuthor.SYSTEM, content: `Fehler bei Dateioperation: ${errorMessage}` }]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [directoryHandle, rootName, refreshFileTree]);
+
+    const handleRejectFileChange = useCallback(() => {
+        setMessages(prev => {
+            const newMessages = prev.map(m => ({ ...m, fileChange: undefined }));
+            return [...newMessages, { id: `sys-${Date.now()}`, author: MessageAuthor.SYSTEM, content: "Dateiänderung abgelehnt." }];
+        });
+    }, []);
 
     const memoizedFileTree = useMemo(() => {
         return fileTree ? <FileTree item={fileTree} onFileClick={handleFileClick} activeFile={activeFile} /> : null;
@@ -151,6 +212,8 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
                     messages={messages}
                     onSendMessage={handleSendMessage}
                     isLoading={isLoading}
+                    onAcceptFileChange={handleAcceptFileChange}
+                    onRejectFileChange={handleRejectFileChange}
                 />
             </main>
         </div>

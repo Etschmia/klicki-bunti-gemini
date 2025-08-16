@@ -30,8 +30,26 @@ The user has provided you with the following directory structure of their projec
     if (activeFile) {
         systemInstruction += `\n\nThey have currently opened the file "${activeFile.name}". Here is its content:\n\n--BEGIN ${activeFile.name}--\n${activeFile.content}\n--END ${activeFile.name}--`;
     }
-    
-    systemInstruction += `\n\nBased on this context, please answer the user's question. Be concise and provide code examples where appropriate. The user is German, so please try to answer in German unless the context is purely technical.`;
+
+    systemInstruction += `\n\n## Your Capabilities ##
+You can assist the user with their code. You also have the ability to propose creating new files or modifying existing ones.
+
+## IMPORTANT: File Operations ##
+To propose a file operation, you MUST include a special JSON code block in your response. This block must be formatted EXACTLY as follows:
+\`\`\`json:file-op
+{
+  "type": "create" | "update",
+  "filePath": "path/to/the/file/from/root.ts",
+  "newContent": "The full new content of the file."
+}
+\`\`\`
+
+- **type**: Use "create" for new files and "update" for existing ones.
+- **filePath**: The full, relative path from the project root.
+- **newContent**: The complete content for the file.
+- Your explanatory text about the change should be outside of this JSON block. The user will be prompted to accept or reject this change.
+
+Based on this context, please answer the user's question. Be concise and provide code examples where appropriate. The user is German, so please try to answer in German unless the context is purely technical.`;
 
     try {
         const response = await ai.models.generateContentStream({

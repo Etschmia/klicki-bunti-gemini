@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChatMessage, MessageAuthor } from '../types';
+import { ChatMessage, MessageAuthor, FileChange } from '../types';
 import { Icon } from './Icon';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -9,6 +9,8 @@ interface ChatInterfaceProps {
     messages: ChatMessage[];
     onSendMessage: (message: string) => void;
     isLoading: boolean;
+    onAcceptFileChange: (change: FileChange) => void;
+    onRejectFileChange: () => void;
 }
 
 const CodeBlock: React.FC<{ language: string; value: string }> = ({ language, value }) => {
@@ -36,7 +38,34 @@ const CodeBlock: React.FC<{ language: string; value: string }> = ({ language, va
     );
 };
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isLoading }) => {
+const FileChangeProposal: React.FC<{
+    fileChange: FileChange;
+    onAccept: () => void;
+    onReject: () => void;
+}> = ({ fileChange, onAccept, onReject }) => {
+    return (
+        <div className="border-l-4 border-yellow-500 pl-4 mt-4">
+            <p className="font-bold text-yellow-400">Vorschlag zur Dateiänderung:</p>
+            <div className="text-sm bg-gray-800/50 p-2 rounded-md mt-2">
+                <p><span className="font-semibold">Aktion:</span> {fileChange.type === 'create' ? 'Datei erstellen' : 'Datei aktualisieren'}</p>
+                <p><span className="font-semibold">Pfad:</span> {fileChange.filePath}</p>
+            </div>
+            <p className="mt-2">Möchten Sie diese Änderung anwenden?</p>
+            <div className="flex gap-4 mt-2">
+                <button onClick={onAccept} className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm font-bold flex items-center gap-2">
+                    <Icon name="check" className="w-4 h-4" />
+                    Änderung anwenden
+                </button>
+                <button onClick={onReject} className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-md text-sm font-bold flex items-center gap-2">
+                    <Icon name="close" className="w-4 h-4" />
+                    Ablehnen
+                </button>
+            </div>
+        </div>
+    )
+}
+
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, isLoading, onAcceptFileChange, onRejectFileChange }) => {
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -97,6 +126,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
                             >
                                 {msg.content}
                             </ReactMarkdown>
+                            {msg.fileChange && (
+                                <FileChangeProposal
+                                    fileChange={msg.fileChange}
+                                    onAccept={() => onAcceptFileChange(msg.fileChange!)}
+                                    onReject={onRejectFileChange}
+                                />
+                            )}
                         </div>
                          {msg.author === MessageAuthor.USER && (
                             <div className="w-8 h-8 flex-shrink-0 bg-gray-700 rounded-full flex items-center justify-center">
@@ -120,7 +156,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
                     />
                     <button
                         onClick={handleSend}
-                        disabled={isLoading || !input.trim()}
+                        disabled={isLoading}
                         className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white"
                     >
                         <Icon name="send" className="w-5 h-5 text-white" />
