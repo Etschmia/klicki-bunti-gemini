@@ -137,7 +137,7 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
         <div className="flex h-screen bg-gray-900 text-gray-200">
             <aside className="w-1/4 max-w-sm min-w-[280px] bg-gray-800/50 flex flex-col p-4 border-r border-gray-700/50">
                 <div className="flex items-center gap-3 mb-4">
-                     <Icon name="gemini" className="h-8 w-8 text-purple-400" />
+                     <Icon name="gemini" className="h-8 w-8 text-blue-400" />
                      <h1 className="text-xl font-bold">Klicki-Bunti Gemini</h1>
                 </div>
                 <DirectoryPicker onOpen={openDirectoryPicker} directoryName={rootName} isLoading={isTreeLoading} />

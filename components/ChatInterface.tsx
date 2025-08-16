@@ -76,7 +76,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
                 {messages.map((msg) => (
                     <div key={msg.id} className={`flex items-start gap-4 ${msg.author === MessageAuthor.USER ? 'justify-end' : ''}`}>
                         {msg.author !== MessageAuthor.USER && (
-                            <div className="w-8 h-8 flex-shrink-0 bg-gradient-to-br from-purple-600 to-blue-500 rounded-full flex items-center justify-center">
+                            <div className="w-8 h-8 flex-shrink-0 bg-gradient-to-br from-blue-600 to-blue-500 rounded-full flex items-center justify-center">
                                 <Icon name="gemini" className="w-5 h-5 text-white" />
                             </div>
                         )}
@@ -115,13 +115,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ messages, onSendMessage, 
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="Stellen Sie eine Frage..."
-                        className="w-full bg-gray-700 text-gray-200 rounded-lg p-4 pr-16 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200"
+                        className="w-full bg-gray-700 text-gray-200 rounded-lg p-4 pr-16 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                         rows={1}
                     />
                     <button
                         onClick={handleSend}
                         disabled={isLoading || !input.trim()}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white"
                     >
                         <Icon name="send" className="w-5 h-5 text-white" />
                     </button>
