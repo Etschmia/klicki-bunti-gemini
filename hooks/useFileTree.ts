@@ -2,6 +2,28 @@
 import { useState, useCallback } from 'react';
 import { FileSystemItem, DirectoryItem, FileItem } from '../types';
 
+// Hilfsfunktion zum Überprüfen und Anfordern von Berechtigungen
+async function verifyPermission(handle: FileSystemHandle, withWrite: boolean): Promise<boolean> {
+    const opts: FileSystemHandlePermissionDescriptor = {};
+    if (withWrite) {
+        opts.mode = 'readwrite';
+    }
+
+    // Überprüfen, ob wir bereits die Berechtigung haben.
+    if ((await handle.queryPermission(opts)) === 'granted') {
+        return true;
+    }
+
+    // Berechtigung anfordern.
+    if ((await handle.requestPermission(opts)) === 'granted') {
+        return true;
+    }
+
+    // Benutzer hat die Berechtigung nicht erteilt.
+    return false;
+}
+
+
 export const useFileTree = () => {
     const [directoryHandle, setDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
     const [fileTree, setFileTree] = useState<DirectoryItem | null>(null);
@@ -47,13 +69,23 @@ export const useFileTree = () => {
             if (!('showDirectoryPicker' in window)) {
                 throw new Error('Ihr Browser unterstützt die File System Access API nicht. Bitte verwenden Sie einen modernen Browser wie Chrome oder Edge.');
             }
-            // Typecast für showDirectoryPicker
+
             const showDirectoryPicker = window.showDirectoryPicker as () => Promise<FileSystemDirectoryHandle>;
             const handle = await showDirectoryPicker();
+
+            // Lese- und Schreibzugriff anfordern
+            const hasPermission = await verifyPermission(handle, true);
+            if (!hasPermission) {
+                setError('Schreibzugriff wurde nicht erteilt. Die Funktionalität ist eingeschränkt.');
+                // Optional: Nur mit Leserechten fortfahren oder abbrechen.
+                // Wir fahren hier fort, zeigen aber den Fehler an.
+            }
+
             setDirectoryHandle(handle);
             setRootName(handle.name);
-            const tree = await processDirectory(handle); // parentPath ist default ''
+            const tree = await processDirectory(handle);
             setFileTree(tree);
+
         } catch (e) {
             const err = e as Error;
             if (err.name !== 'AbortError') {
@@ -64,5 +96,20 @@ export const useFileTree = () => {
         }
     }, []);
 
-    return { directoryHandle, fileTree, rootName, isLoading, error, openDirectoryPicker };
+    const refreshFileTree = useCallback(async () => {
+        if (directoryHandle) {
+            setIsLoading(true);
+            try {
+                const tree = await processDirectory(directoryHandle);
+                setFileTree(tree);
+            } catch (e) {
+                const err = e as Error;
+                setError(`Fehler beim Aktualisieren des Verzeichnisbaums: ${err.message}`);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+    }, [directoryHandle]);
+
+    return { directoryHandle, fileTree, rootName, isLoading, error, openDirectoryPicker, refreshFileTree };
 };
