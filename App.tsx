@@ -140,20 +140,32 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
     }, [isLoading, fileTree, activeFile, activeFileContent]);
 
     const handleAcceptFileChange = useCallback(async (change: FileChange) => {
-        if (!directoryHandle) return;
+        if (!directoryHandle || !rootName) return;
         setIsLoading(true);
+
+        // Pfad bereinigen: Entfernt führende/nachfolgende Leerzeichen und das Stammverzeichnis, falls vorhanden.
+        let cleanPath = change.filePath.trim();
+        const rootPrefix = `${rootName}/`;
+        if (cleanPath.startsWith(rootPrefix)) {
+            cleanPath = cleanPath.substring(rootPrefix.length);
+        }
+
         try {
             if (change.type === 'create') {
-                const parentPath = change.filePath.substring(0, change.filePath.lastIndexOf('/'));
+                const parentPath = cleanPath.substring(0, cleanPath.lastIndexOf('/'));
                 const parentHandle = parentPath ? await fileService.getHandleForPath(directoryHandle, parentPath) : directoryHandle;
-                if (parentHandle?.kind !== 'directory') throw new Error("Übergeordneter Pfad ist kein Verzeichnis.");
+                if (parentHandle?.kind !== 'directory') {
+                    throw new Error("Übergeordneter Pfad ist kein Verzeichnis.");
+                }
 
-                const fileName = change.filePath.substring(change.filePath.lastIndexOf('/') + 1);
+                const fileName = cleanPath.substring(cleanPath.lastIndexOf('/') + 1);
                 await fileService.createFile(parentHandle, fileName, change.newContent);
 
             } else if (change.type === 'update') {
-                const fileHandle = await fileService.getHandleForPath(directoryHandle, change.filePath);
-                if (fileHandle?.kind !== 'file') throw new Error("Zieldatei nicht gefunden oder ist ein Verzeichnis.");
+                const fileHandle = await fileService.getHandleForPath(directoryHandle, cleanPath);
+                if (fileHandle?.kind !== 'file') {
+                    throw new Error("Zieldatei nicht gefunden oder ist ein Verzeichnis.");
+                }
                 await fileService.updateFile(fileHandle, change.newContent);
             }
 
@@ -169,7 +181,7 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
         } finally {
             setIsLoading(false);
         }
-    }, [directoryHandle, refreshFileTree]);
+    }, [directoryHandle, rootName, refreshFileTree]);
 
     const handleRejectFileChange = useCallback(() => {
         setMessages(prev => {
