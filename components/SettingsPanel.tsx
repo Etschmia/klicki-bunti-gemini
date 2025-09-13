@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Icon } from './Icon';
 import { useTheme } from '../contexts/ThemeContext';
 import { ThemeMode, ColorScheme, ViewMode, FontSize } from '../types';
+import { updateService, UpdateResult } from '../services/updateService';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -10,7 +11,9 @@ interface SettingsPanelProps {
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
   const { theme, settings, updateTheme, updateSettings, resetSettings } = useTheme();
-  const [activeTab, setActiveTab] = useState<'appearance' | 'chat' | 'files'>('appearance');
+  const [activeTab, setActiveTab] = useState<'appearance' | 'chat' | 'files' | 'about'>('appearance');
+  const [updateStatus, setUpdateStatus] = useState<UpdateResult | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   if (!isOpen) return null;
 
@@ -34,6 +37,30 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
     updateTheme({ sidebarWidth: width });
   };
 
+  const handleUpdate = async () => {
+    setIsUpdating(true);
+    setUpdateStatus(null);
+    
+    try {
+      const result = await updateService.performUpdate();
+      setUpdateStatus(result);
+      
+      // If update was successful, show message for a moment then reload
+      if (result.message === 'Success') {
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      }
+    } catch (error) {
+      setUpdateStatus({
+        success: false,
+        message: 'Offline: serving the cache'
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl h-4/5 flex flex-col">
@@ -54,6 +81,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
             { id: 'appearance', label: 'Appearance', icon: 'theme' },
             { id: 'chat', label: 'Chat', icon: 'user' },
             { id: 'files', label: 'Files', icon: 'folder' },
+            { id: 'about', label: 'About', icon: 'info' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -324,6 +352,128 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
                     <span>1MB</span>
                     <span>50MB</span>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'about' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium text-gray-200 mb-6">About Klicki-Bunti-Gemini</h3>
+                
+                {/* App Information */}
+                <div className="bg-gray-700/50 rounded-lg p-6 space-y-4">
+                  <div className="flex items-center gap-4">
+                    <Icon name="gemini" className="w-12 h-12 text-blue-400" />
+                    <div>
+                      <h4 className="text-xl font-semibold text-gray-100">{updateService.getAppInfo().name}</h4>
+                      <p className="text-gray-400">Desktop AI Assistant for Developers</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mt-6">
+                    <div className="bg-gray-800/50 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">Version</div>
+                      <div className="text-gray-200 font-mono">{updateService.getAppInfo().version}</div>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">Build Date</div>
+                      <div className="text-gray-200 font-mono">{updateService.getAppInfo().buildDate}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-800/50 rounded-lg p-4">
+                    <div className="text-sm text-gray-400">Copyright</div>
+                    <div className="text-gray-200">{updateService.getAppInfo().copyright}</div>
+                  </div>
+                  
+                  <div className="bg-gray-800/50 rounded-lg p-4">
+                    <div className="text-sm text-gray-400">Homepage</div>
+                    <a 
+                      href={updateService.getAppInfo().homepage} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      {updateService.getAppInfo().homepage}
+                    </a>
+                  </div>
+                </div>
+
+                {/* Support Section */}
+                <div className="bg-gray-700/50 rounded-lg p-6 mt-6">
+                  <h4 className="text-lg font-medium text-gray-200 mb-4">Support Development</h4>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="text-gray-300 mb-2">
+                        If you find this software helpful, consider supporting its development
+                      </div>
+                      <div className="text-sm text-gray-400">
+                        Your support helps maintain and improve Klicki-Bunti-Gemini
+                      </div>
+                    </div>
+                    <a
+                      href="https://paypal.me/Etschmia"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium ml-4"
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a9.36 9.36 0 0 1-.077.437c-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287z"/>
+                      </svg>
+                      Support via PayPal
+                    </a>
+                  </div>
+                </div>
+
+                {/* Update Section */}
+                <div className="bg-gray-700/50 rounded-lg p-6 mt-6">
+                  <h4 className="text-lg font-medium text-gray-200 mb-4">Software Update</h4>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className="text-gray-400">
+                      Check for and install software updates
+                    </div>
+                    <button
+                      onClick={handleUpdate}
+                      disabled={isUpdating}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                        isUpdating
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      <Icon 
+                        name="refresh" 
+                        className={`w-4 h-4 ${isUpdating ? 'animate-spin' : ''}`} 
+                      />
+                      {isUpdating ? 'Updating...' : 'Update'}
+                    </button>
+                  </div>
+                  
+                  {/* Update Status */}
+                  {updateStatus && (
+                    <div className={`mt-4 p-3 rounded-lg flex items-center gap-2 ${
+                      updateStatus.message === 'Success'
+                        ? 'bg-green-900/50 border border-green-700 text-green-300'
+                        : updateStatus.message === 'Already Up to Date'
+                        ? 'bg-blue-900/50 border border-blue-700 text-blue-300'
+                        : 'bg-orange-900/50 border border-orange-700 text-orange-300'
+                    }`}>
+                      <Icon 
+                        name={updateStatus.message === 'Success' ? 'check' : 'info'} 
+                        className="w-4 h-4" 
+                      />
+                      <span>{updateStatus.message}</span>
+                      {updateStatus.message === 'Success' && (
+                        <span className="text-sm opacity-75 ml-2">
+                          (Reloading in 2 seconds...)
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
