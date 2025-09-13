@@ -15,6 +15,43 @@ export default defineConfig(({ mode }) => {
           '@': path.resolve(__dirname, './'),
         }
       },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: (id) => {
+              // Separate React and React-DOM
+              if (id.includes('react') || id.includes('react-dom')) {
+                return 'react-vendor';
+              }
+              // Separate markdown rendering
+              if (id.includes('react-markdown')) {
+                return 'markdown-vendor';
+              }
+              // Separate AI SDK
+              if (id.includes('@google/genai')) {
+                return 'ai-vendor';
+              }
+              // Split syntax highlighter into smaller chunks
+              if (id.includes('react-syntax-highlighter')) {
+                if (id.includes('/languages/')) {
+                  // Group language files into smaller chunks by first letter
+                  const match = id.match(/\/languages\/hljs\/(.)/); 
+                  if (match) {
+                    const firstLetter = match[1].toLowerCase();
+                    return `syntax-lang-${firstLetter}`;
+                  }
+                }
+                return 'syntax-highlighter-core';
+              }
+              // Default chunk for other node_modules
+              if (id.includes('node_modules')) {
+                return 'vendor';
+              }
+            }
+          }
+        },
+        chunkSizeWarningLimit: 1000, // Increase warning limit to 1000kb
+      },
       server: {
         port: 3000,  // Use a specific port to avoid conflicts
         open: true,  // Öffnet automatisch den Browser mit der Local-URL

@@ -4,6 +4,7 @@ import { ChatMessage, MessageAuthor, FileItem, FileSystemItem, FileChange } from
 import { useFileTree } from './hooks/useFileTree';
 import { useChatHistory } from './hooks/useChatHistory';
 import { generateResponseStream } from './services/geminiService';
+import { preloadGemini } from './services/lazyGeminiService';
 import * as fileService from './services/fileService';
 import ChatInterface from './components/ChatInterface';
 import DirectoryPicker from './components/DirectoryPicker';
@@ -68,6 +69,9 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
 
 *Hinweis: Diese App verwendet die moderne File System Access API Ihres Browsers, um sicher auf lokale Dateien zuzugreifen. Ihre Dateien verlassen Ihren Computer nicht, außer denen, die Sie aktiv als Kontext für eine Anfrage auswählen.*`, MessageAuthor.SYSTEM);
         }
+        
+        // Preload Gemini module for better performance
+        preloadGemini();
     }, [addMessage, messages.length]);
 
     useEffect(() => {

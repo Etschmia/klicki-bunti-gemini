@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from './Icon';
 import { ProjectInfo as ProjectInfoType, FileSystemItem } from '../types';
 import { parsePackageJson, parseReadme, detectProjectType } from '../utils/fileUtils';
-import ReactMarkdown from 'react-markdown';
+import LazyMarkdown from './LazyMarkdown';
 
 interface ProjectInfoProps {
   fileTree: FileSystemItem | null;
@@ -181,21 +181,21 @@ const ProjectInfo: React.FC<ProjectInfoProps> = ({ fileTree, rootName }) => {
 
             {activeTab === 'readme' && projectInfo.readme && (
               <div className="max-h-64 overflow-y-auto">
-                <ReactMarkdown 
+                <LazyMarkdown 
                   className="prose prose-xs prose-invert max-w-none"
                   components={{
-                    h1: ({ children }) => <h1 className="text-sm font-bold mb-2">{children}</h1>,
-                    h2: ({ children }) => <h2 className="text-xs font-semibold mb-1">{children}</h2>,
-                    h3: ({ children }) => <h3 className="text-xs font-medium mb-1">{children}</h3>,
-                    p: ({ children }) => <p className="text-xs mb-2">{children}</p>,
-                    ul: ({ children }) => <ul className="text-xs list-disc list-inside mb-2">{children}</ul>,
-                    ol: ({ children }) => <ol className="text-xs list-decimal list-inside mb-2">{children}</ol>,
-                    li: ({ children }) => <li className="mb-1">{children}</li>,
-                    code: ({ children }) => <code className="bg-gray-800 px-1 rounded text-xs">{children}</code>,
+                    h1: ({ children }: any) => <h1 className="text-sm font-bold mb-2">{children}</h1>,
+                    h2: ({ children }: any) => <h2 className="text-xs font-semibold mb-1">{children}</h2>,
+                    h3: ({ children }: any) => <h3 className="text-xs font-medium mb-1">{children}</h3>,
+                    p: ({ children }: any) => <p className="text-xs mb-2">{children}</p>,
+                    ul: ({ children }: any) => <ul className="text-xs list-disc list-inside mb-2">{children}</ul>,
+                    ol: ({ children }: any) => <ol className="text-xs list-decimal list-inside mb-2">{children}</ol>,
+                    li: ({ children }: any) => <li className="mb-1">{children}</li>,
+                    code: ({ children }: any) => <code className="bg-gray-800 px-1 rounded text-xs">{children}</code>,
                   }}
                 >
                   {projectInfo.readme.slice(0, 1000) + (projectInfo.readme.length > 1000 ? '...' : '')}
-                </ReactMarkdown>
+                </LazyMarkdown>
               </div>
             )}
 

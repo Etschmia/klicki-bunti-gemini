@@ -2,9 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, MessageAuthor, FileChange } from '../types';
 import { Icon } from './Icon';
 import ChatSearch from './ChatSearch';
-import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import LazyMarkdown from './LazyMarkdown';
+import LazyCodeBlock from './LazyCodeBlock';
 import { exportChatToMarkdown, downloadAsFile, copyToClipboard, generateExportFilename } from '../utils/exportUtils';
 
 interface ChatInterfaceProps {
@@ -22,28 +21,7 @@ interface ChatInterfaceProps {
 }
 
 const CodeBlock: React.FC<{ language: string; value: string }> = ({ language, value }) => {
-    const [isCopied, setIsCopied] = useState(false);
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(value);
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
-    };
-
-    return (
-        <div className="relative bg-gray-800 rounded-md my-2">
-            <div className="flex items-center justify-between px-4 py-1 bg-gray-700/50 rounded-t-md">
-                <span className="text-xs font-sans text-gray-400">{language || 'code'}</span>
-                <button onClick={handleCopy} className="flex items-center text-xs text-gray-400 hover:text-white">
-                    <Icon name={isCopied ? 'check' : 'copy'} className="w-4 h-4 mr-1" />
-                    {isCopied ? 'Copied!' : 'Copy'}
-                </button>
-            </div>
-            <SyntaxHighlighter style={atomDark} language={language} PreTag="div">
-                {String(value).replace(/\n$/, '')}
-            </SyntaxHighlighter>
-        </div>
-    );
+    return <LazyCodeBlock language={language} value={value} />;
 };
 
 const FileChangeProposal: React.FC<{
@@ -304,9 +282,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                 {msg.isEdited && <span className="italic">(edited)</span>}
                                 {msg.isFavorite && <Icon name="star-filled" className="w-3 h-3 text-yellow-400" />}
                             </div>
-                            <ReactMarkdown
+                            <LazyMarkdown
                                 components={{
-                                    code({ node, inline, className, children, ...props }) {
+                                    code({ node, inline, className, children, ...props }: any) {
                                         const match = /language-(\w+)/.exec(className || '');
                                         return !inline && match ? (
                                             <CodeBlock language={match[1]} value={String(children).replace(/\n$/, '')} />
@@ -319,7 +297,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                                 }}
                             >
                                 {msg.content}
-                            </ReactMarkdown>
+                            </LazyMarkdown>
                             {msg.fileChange && (
                                 <FileChangeProposal
                                     fileChange={msg.fileChange}
