@@ -1,4 +1,4 @@
-import { FileMetadata, ProjectInfo, EnhancedFileItem, EnhancedDirectoryItem, EnhancedFileSystemItem } from '../types';
+import { FileMetadata, ProjectInfo } from '../types';
 
 // File type configurations
 const CONFIG_FILES = new Set([

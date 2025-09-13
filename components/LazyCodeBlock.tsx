@@ -1,4 +1,4 @@
-import React, { useState, lazy, Suspense } from 'react';
+import React, { useState } from 'react';
 
 // Lazy load the syntax highlighter with dynamic imports for individual languages
 const loadSyntaxHighlighter = () => 

@@ -1,3 +1,5 @@
+import packageInfo from '../package.json';
+
 export interface UpdateResult {
   success: boolean;
   message: 'Success' | 'Already Up to Date' | 'Offline: serving the cache';
@@ -28,7 +30,7 @@ class UpdateService {
     
     return {
       name: 'Klicki-Bunti-Gemini',
-      version: '0.0.1', // This should match package.json version
+      version: packageInfo.version, // Read version from package.json
       buildDate,
       copyright: '2025 Tobias Brendler',
       homepage: 'https://github.com/Etschmia/klicki-bunti-gemini'

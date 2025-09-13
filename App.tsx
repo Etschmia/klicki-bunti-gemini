@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { ChatMessage, MessageAuthor, FileItem, FileSystemItem, FileChange } from './types';
+import { MessageAuthor, FileItem, FileSystemItem, FileChange } from './types';
 import { useFileTree } from './hooks/useFileTree';
 import { useChatHistory } from './hooks/useChatHistory';
 import { generateResponseStream } from './services/geminiService';
@@ -110,7 +110,7 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
         if (!prompt || isLoading) return;
 
         setIsLoading(true);
-        const userMessage = addMessage(prompt, MessageAuthor.USER);
+        addMessage(prompt, MessageAuthor.USER);
         const aiMessage = addMessage('...', MessageAuthor.AI);
 
         try {

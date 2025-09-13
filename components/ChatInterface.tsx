@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, FileChange } from '../types';
 import { Icon } from './Icon';
 import ChatSearch from './ChatSearch';
@@ -16,7 +16,6 @@ interface ChatInterfaceProps {
     onDeleteMessage?: (messageId: string) => void;
     onToggleFavorite?: (messageId: string) => void;
     sessionName?: string;
-    onExportChat?: () => void;
     onClearChat?: () => void;
 }
 
@@ -61,13 +60,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     onDeleteMessage,
     onToggleFavorite,
     sessionName,
-    onExportChat,
     onClearChat
 }) => {
     const [input, setInput] = useState('');
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
-    const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -126,7 +123,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     };
 
     const handleSearchResults = (results: ChatMessage[]) => {
-        setSearchResults(results);
         if (results.length > 0) {
             setHighlightedMessageId(results[0].id);
             // Scroll to first result
@@ -141,7 +137,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     const handleCloseSearch = () => {
         setShowSearch(false);
-        setSearchResults([]);
         setHighlightedMessageId(null);
     };
 

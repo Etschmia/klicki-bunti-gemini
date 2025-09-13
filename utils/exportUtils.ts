@@ -10,7 +10,7 @@ export function exportChatToMarkdown(messages: ChatMessage[], sessionName?: stri
   markdown += `*Exported on ${timestamp}*\n\n`;
   markdown += `---\n\n`;
 
-  messages.forEach((message, index) => {
+  messages.forEach((message) => {
     const authorEmoji = message.author === MessageAuthor.USER ? '👤' : 
                        message.author === MessageAuthor.AI ? '🤖' : '📢';
     const authorName = message.author === MessageAuthor.USER ? 'User' :
