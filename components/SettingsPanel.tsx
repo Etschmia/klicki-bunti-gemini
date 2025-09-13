@@ -372,7 +372,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4 mt-6">
+                  <div className="grid grid-cols-3 gap-4 mt-6">
                     <div className="bg-gray-800/50 rounded-lg p-4">
                       <div className="text-sm text-gray-400">Version</div>
                       <div className="text-gray-200 font-mono">{updateService.getAppInfo().version}</div>
@@ -380,6 +380,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
                     <div className="bg-gray-800/50 rounded-lg p-4">
                       <div className="text-sm text-gray-400">Build Date</div>
                       <div className="text-gray-200 font-mono">{updateService.getAppInfo().buildDate}</div>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">Build Time</div>
+                      <div className="text-gray-200 font-mono">{updateService.getAppInfo().buildTime}</div>
                     </div>
                   </div>
                   

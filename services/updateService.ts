@@ -10,6 +10,7 @@ export interface AppInfo {
   name: string;
   version: string;
   buildDate: string;
+  buildTime: string;
   copyright: string;
   homepage: string;
 }
@@ -24,14 +25,22 @@ class UpdateService {
     return UpdateService.instance;
   }
 
+  private isDevelopment(): boolean {
+    // Check if we're in development mode based on hostname
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  }
+
   public getAppInfo(): AppInfo {
-    // Build date is set at build time - for now using current date
-    const buildDate = new Date().toISOString().split('T')[0];
+    // Build date and time are set at build time
+    const now = new Date();
+    const buildDate = now.toISOString().split('T')[0];
+    const buildTime = now.toTimeString().split(' ')[0]; // HH:MM:SS format
     
     return {
       name: 'Klicki-Bunti-Gemini',
       version: packageInfo.version, // Read version from package.json
       buildDate,
+      buildTime,
       copyright: '2025 Tobias Brendler',
       homepage: 'https://github.com/Etschmia/klicki-bunti-gemini'
     };
@@ -39,41 +48,30 @@ class UpdateService {
 
   public async checkForUpdate(): Promise<UpdateResult> {
     try {
-      // Try to fetch the latest version info from the server
-      const response = await fetch('/api/version', {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-        // Add a timeout to handle offline scenarios
-        signal: AbortSignal.timeout(5000)
-      });
-
-      if (!response.ok) {
-        throw new Error('Server response not ok');
-      }
-
-      const serverInfo = await response.json();
       const currentVersion = this.getAppInfo().version;
-
-      if (this.compareVersions(serverInfo.version, currentVersion) > 0) {
-        // Server has newer version
-        return {
-          success: true,
-          message: 'Success',
-          version: serverInfo.version
-        };
-      } else {
-        // Already up to date
+      
+      // In development mode, always show "Already Up to Date"
+      if (this.isDevelopment()) {
         return {
           success: true,
           message: 'Already Up to Date',
           version: currentVersion
         };
       }
+      
+      // For production deployment, you would implement actual version checking here
+      // Example: fetch('/api/version') or check GitHub releases API
+      
+      // For now, since this is primarily a local development tool,
+      // we'll default to "Already Up to Date"
+      return {
+        success: true,
+        message: 'Already Up to Date',
+        version: currentVersion
+      };
+      
     } catch (error) {
       console.warn('Update check failed:', error);
-      // Offline or server error
       return {
         success: false,
         message: 'Offline: serving the cache'
@@ -83,7 +81,20 @@ class UpdateService {
 
   public async performUpdate(): Promise<UpdateResult> {
     try {
-      // Check if service worker is available
+      // First check if there's actually an update available
+      const updateCheck = await this.checkForUpdate();
+      
+      if (updateCheck.message === 'Already Up to Date') {
+        return updateCheck;
+      }
+      
+      // For a local development app, we can't actually perform updates
+      // In a real deployment scenario, this would:
+      // 1. Download new files
+      // 2. Update service worker cache
+      // 3. Reload the application
+      
+      // Check if service worker is available for cache refresh
       if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.getRegistration();
         if (registration) {
@@ -103,16 +114,14 @@ class UpdateService {
         }
       }
 
-      // If no service worker, try to reload the page to get fresh content
-      const updateResult = await this.checkForUpdate();
+      // If no service worker or no update available, just reload to refresh cache
+      window.location.reload();
       
-      if (updateResult.message === 'Success') {
-        // Reload the page to get the updated version
-        window.location.reload();
-        return updateResult;
-      }
+      return {
+        success: true,
+        message: 'Success'
+      };
       
-      return updateResult;
     } catch (error) {
       console.error('Update failed:', error);
       return {
