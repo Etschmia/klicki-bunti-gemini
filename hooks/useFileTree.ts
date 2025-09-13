@@ -1,6 +1,8 @@
 
 import { useState, useCallback } from 'react';
 import { FileSystemItem, DirectoryItem, FileItem } from '../types';
+import { parseGitignore, isIgnoredByGitignore, shouldHideFile } from '../utils/fileUtils';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Hilfsfunktion zum Überprüfen und Anfordern von Berechtigungen
 async function verifyPermission(handle: FileSystemHandle, withWrite: boolean): Promise<boolean> {
@@ -25,17 +27,48 @@ async function verifyPermission(handle: FileSystemHandle, withWrite: boolean): P
 
 
 export const useFileTree = () => {
+    const { settings } = useTheme();
     const [directoryHandle, setDirectoryHandle] = useState<FileSystemDirectoryHandle | null>(null);
     const [fileTree, setFileTree] = useState<DirectoryItem | null>(null);
     const [rootName, setRootName] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [gitignorePatterns, setGitignorePatterns] = useState<string[]>([]);
 
     const processDirectory = async (handle: FileSystemDirectoryHandle, parentPath: string = ''): Promise<DirectoryItem> => {
         const currentPath = parentPath ? `${parentPath}/${handle.name}` : handle.name;
         const children: FileSystemItem[] = [];
+        
+        // Parse .gitignore if we're at the root level
+        let localGitignorePatterns = gitignorePatterns;
+        if (parentPath === '' && settings.fileSettings.respectGitignore) {
+            try {
+                // Look for .gitignore in current directory
+                for await (const entry of ((handle as any).values())) {
+                    if (entry.kind === 'file' && entry.name === '.gitignore') {
+                        const patterns = await parseGitignore(entry);
+                        localGitignorePatterns = patterns;
+                        setGitignorePatterns(patterns);
+                        break;
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to parse .gitignore:', error);
+            }
+        }
         // Typecast für handle auf any, damit .values() akzeptiert wird
         for await (const entry of ((handle as any).values())) {
+            const itemPath = `${currentPath}/${entry.name}`;
+            
+            // Skip hidden files if setting is disabled
+            if (shouldHideFile(entry.name, settings.fileSettings.showHiddenFiles)) {
+                continue;
+            }
+            
+            // Skip gitignored files if setting is enabled
+            if (settings.fileSettings.respectGitignore && isIgnoredByGitignore(itemPath, localGitignorePatterns)) {
+                continue;
+            }
             if (entry.kind === 'directory') {
                 // Ignore node_modules and .git for performance and relevance
                 if (entry.name !== 'node_modules' && entry.name !== '.git') {

@@ -2,12 +2,16 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { ChatMessage, MessageAuthor, FileItem, FileSystemItem, FileChange } from './types';
 import { useFileTree } from './hooks/useFileTree';
+import { useChatHistory } from './hooks/useChatHistory';
 import { generateResponseStream } from './services/geminiService';
 import * as fileService from './services/fileService';
 import ChatInterface from './components/ChatInterface';
 import DirectoryPicker from './components/DirectoryPicker';
 import FileTree from './components/FileTree';
+import SettingsPanel from './components/SettingsPanel';
+import ProjectInfo from './components/ProjectInfo';
 import { Icon } from './components/Icon';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 const findFileInTree = (item: FileSystemItem, fileName: string): FileItem | null => {
     if (item.kind === 'file') {
@@ -41,12 +45,19 @@ const parseFileChange = (response: string): { fileChange: FileChange | null, cle
 };
 
 
-const App: React.FC = () => {
-    const [messages, setMessages] = useState<ChatMessage[]>([
-        {
-            id: 'initial-message',
-            author: MessageAuthor.SYSTEM,
-            content: `**Willkommen bei Klicki-Bunti Gemini!**
+const AppContent: React.FC = () => {
+    const { fileTree, rootName, openDirectoryPicker, isLoading: isTreeLoading, error: treeError, directoryHandle, refreshFileTree } = useFileTree();
+    const { messages, addMessage, updateMessage, deleteMessage, toggleMessageFavorite, currentSession, clearCurrentSession } = useChatHistory(rootName || undefined);
+    const [isLoading, setIsLoading] = useState(false);
+    const [activeFile, setActiveFile] = useState<FileItem | null>(null);
+    const [activeFileContent, setActiveFileContent] = useState<string | null>(null);
+    const [showSettings, setShowSettings] = useState(false);
+    const isInitialMount = useRef(true);
+
+    // Add initial welcome message if no messages exist
+    useEffect(() => {
+        if (messages.length === 0) {
+            addMessage(`**Willkommen bei Klicki-Bunti Gemini!**
 
 Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
 
@@ -55,14 +66,9 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
 2.  Ich werde die Dateistruktur anzeigen. Klicken Sie auf eine Datei, um deren Inhalt zu meinem Kontext hinzuzufügen.
 3.  Stellen Sie mir eine Frage zu Ihrem Code! Ich kann Ihnen auch beim Erstellen oder Ändern von Dateien helfen.
 
-*Hinweis: Diese App verwendet die moderne File System Access API Ihres Browsers, um sicher auf lokale Dateien zuzugreifen. Ihre Dateien verlassen Ihren Computer nicht, außer denen, die Sie aktiv als Kontext für eine Anfrage auswählen.*`
+*Hinweis: Diese App verwendet die moderne File System Access API Ihres Browsers, um sicher auf lokale Dateien zuzugreifen. Ihre Dateien verlassen Ihren Computer nicht, außer denen, die Sie aktiv als Kontext für eine Anfrage auswählen.*`, MessageAuthor.SYSTEM);
         }
-    ]);
-    const [isLoading, setIsLoading] = useState(false);
-    const { fileTree, rootName, openDirectoryPicker, isLoading: isTreeLoading, error: treeError, directoryHandle, refreshFileTree } = useFileTree();
-    const [activeFile, setActiveFile] = useState<FileItem | null>(null);
-    const [activeFileContent, setActiveFileContent] = useState<string | null>(null);
-    const isInitialMount = useRef(true);
+    }, [addMessage, messages.length]);
 
     useEffect(() => {
         if (isInitialMount.current) {
@@ -70,13 +76,9 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
         } else if(rootName) {
             setActiveFile(null);
             setActiveFileContent(null);
-            setMessages(prev => [...prev, {
-                id: `dir-change-${Date.now()}`,
-                author: MessageAuthor.SYSTEM,
-                content: `Verzeichnis gewechselt zu **${rootName}**. Der aktive Dateikontext wurde zurückgesetzt. Wählen Sie bei Bedarf eine neue Datei aus.`
-            }]);
+            addMessage(`Verzeichnis gewechselt zu **${rootName}**. Der aktive Dateikontext wurde zurückgesetzt. Wählen Sie bei Bedarf eine neue Datei aus.`, MessageAuthor.SYSTEM);
         }
-    }, [rootName]);
+    }, [rootName, addMessage]);
 
     useEffect(() => {
         if (fileTree) {
@@ -91,18 +93,10 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
             const fileHandle = await file.handle.getFile();
             const content = await fileHandle.text();
             setActiveFileContent(content);
-            setMessages(prev => [...prev, {
-                id: `file-context-${Date.now()}`,
-                author: MessageAuthor.SYSTEM,
-                content: `Kontext aktualisiert. Aktive Datei ist jetzt **${file.name}**. Ich werde den Inhalt dieser Datei bei meiner nächsten Antwort berücksichtigen.`
-            }]);
+            addMessage(`Kontext aktualisiert. Aktive Datei ist jetzt **${file.name}**. Ich werde den Inhalt dieser Datei bei meiner nächsten Antwort berücksichtigen.`, MessageAuthor.SYSTEM);
         } catch (e) {
             const errorMessage = e instanceof Error ? e.message : String(e);
-            setMessages(prev => [...prev, {
-                id: `file-error-${Date.now()}`,
-                author: MessageAuthor.SYSTEM,
-                content: `Fehler beim Lesen der Datei ${file.name}: ${errorMessage}`
-            }]);
+            addMessage(`Fehler beim Lesen der Datei ${file.name}: ${errorMessage}`, MessageAuthor.SYSTEM);
             setActiveFile(null);
             setActiveFileContent(null);
         }
@@ -112,32 +106,35 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
         if (!prompt || isLoading) return;
 
         setIsLoading(true);
-        const userMessage: ChatMessage = { id: `user-${Date.now()}`, author: MessageAuthor.USER, content: prompt };
-        const aiMessageId = `ai-${Date.now()}`;
-        setMessages(prev => [...prev, userMessage, { id: aiMessageId, author: MessageAuthor.AI, content: '...' }]);
+        const userMessage = addMessage(prompt, MessageAuthor.USER);
+        const aiMessage = addMessage('...', MessageAuthor.AI);
 
         try {
             const stream = await generateResponseStream(prompt, fileTree, activeFile ? { name: activeFile.name, content: activeFileContent ?? '' } : null);
 
             let fullResponse = '';
-            setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: '' } : msg));
+            updateMessage(aiMessage.id, '');
 
             for await (const chunk of stream) {
                 fullResponse += chunk;
-                setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: fullResponse } : msg));
+                updateMessage(aiMessage.id, fullResponse);
             }
 
             const { fileChange, cleanedResponse } = parseFileChange(fullResponse);
-
-            setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: cleanedResponse, fileChange: fileChange } : msg));
+            updateMessage(aiMessage.id, cleanedResponse);
+            
+            // If there's a file change, update the message with it
+            if (fileChange) {
+                // We'll need to update this when we add file change support to the updated message system
+            }
 
         } catch (e) {
             const errorMessage = e instanceof Error ? e.message : String(e);
-            setMessages(prev => prev.map(msg => msg.id === aiMessageId ? { ...msg, content: `Entschuldigung, ein Fehler ist aufgetreten: ${errorMessage}` } : msg));
+            updateMessage(aiMessage.id, `Entschuldigung, ein Fehler ist aufgetreten: ${errorMessage}`);
         } finally {
             setIsLoading(false);
         }
-    }, [isLoading, fileTree, activeFile, activeFileContent]);
+    }, [isLoading, fileTree, activeFile, activeFileContent, addMessage, updateMessage]);
 
     const handleAcceptFileChange = useCallback(async (change: FileChange) => {
         if (!directoryHandle || !rootName) return;
@@ -170,25 +167,19 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
             }
 
             await refreshFileTree();
-            setMessages(prev => {
-                const newMessages = prev.map(m => ({ ...m, fileChange: undefined }));
-                return [...newMessages, { id: `sys-${Date.now()}`, author: MessageAuthor.SYSTEM, content: `Datei **${change.filePath}** erfolgreich ${change.type === 'create' ? 'erstellt' : 'geändert'}.` }];
-            });
+            addMessage(`Datei **${change.filePath}** erfolgreich ${change.type === 'create' ? 'erstellt' : 'geändert'}.`, MessageAuthor.SYSTEM);
 
         } catch (e) {
             const errorMessage = e instanceof Error ? e.message : String(e);
-            setMessages(prev => [...prev, { id: `sys-err-${Date.now()}`, author: MessageAuthor.SYSTEM, content: `Fehler bei Dateioperation: ${errorMessage}` }]);
+            addMessage(`Fehler bei Dateioperation: ${errorMessage}`, MessageAuthor.SYSTEM);
         } finally {
             setIsLoading(false);
         }
-    }, [directoryHandle, rootName, refreshFileTree]);
+    }, [directoryHandle, rootName, refreshFileTree, addMessage]);
 
     const handleRejectFileChange = useCallback(() => {
-        setMessages(prev => {
-            const newMessages = prev.map(m => ({ ...m, fileChange: undefined }));
-            return [...newMessages, { id: `sys-${Date.now()}`, author: MessageAuthor.SYSTEM, content: "Dateiänderung abgelehnt." }];
-        });
-    }, []);
+        addMessage("Dateiänderung abgelehnt.", MessageAuthor.SYSTEM);
+    }, [addMessage]);
 
     const memoizedFileTree = useMemo(() => {
         return fileTree ? <FileTree item={fileTree} onFileClick={handleFileClick} activeFile={activeFile} /> : null;
@@ -197,14 +188,24 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
     return (
         <div className="flex h-screen bg-gray-900 text-gray-200">
             <aside className="w-1/4 max-w-sm min-w-[280px] bg-gray-800/50 flex flex-col p-4 border-r border-gray-700/50">
-                <div className="flex items-center gap-3 mb-4">
-                     <Icon name="gemini" className="h-8 w-8 text-blue-400" />
-                     <h1 className="text-xl font-bold">Klicki-Bunti Gemini</h1>
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                        <Icon name="gemini" className="h-8 w-8 text-blue-400" />
+                        <h1 className="text-xl font-bold">Klicki-Bunti Gemini</h1>
+                    </div>
+                    <button
+                        onClick={() => setShowSettings(true)}
+                        className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700/50 transition-colors"
+                        title="Settings"
+                    >
+                        <Icon name="settings" className="w-5 h-5" />
+                    </button>
                 </div>
                 <DirectoryPicker onOpen={openDirectoryPicker} directoryName={rootName} isLoading={isTreeLoading} />
                 {treeError && <p className="text-red-400 text-sm mt-2">{treeError}</p>}
                 <div className="mt-4 flex-1 overflow-y-auto pr-2">
                     {isTreeLoading ? <p>Lade Verzeichnis...</p> : memoizedFileTree}
+                    <ProjectInfo fileTree={fileTree} rootName={rootName} />
                 </div>
             </aside>
             <main className="flex-1 flex flex-col h-screen">
@@ -214,9 +215,29 @@ Ich bin ein KI-Assistent, der Ihnen bei Ihren Programmieraufgaben helfen kann.
                     isLoading={isLoading}
                     onAcceptFileChange={handleAcceptFileChange}
                     onRejectFileChange={handleRejectFileChange}
+                    onEditMessage={updateMessage}
+                    onDeleteMessage={deleteMessage}
+                    onToggleFavorite={toggleMessageFavorite}
+                    sessionName={currentSession?.name}
+                    onClearChat={clearCurrentSession}
                 />
             </main>
+            
+            {/* Settings Panel */}
+            <SettingsPanel 
+                isOpen={showSettings} 
+                onClose={() => setShowSettings(false)} 
+            />
         </div>
+    );
+};
+
+// Main App component with ThemeProvider
+const App: React.FC = () => {
+    return (
+        <ThemeProvider>
+            <AppContent />
+        </ThemeProvider>
     );
 };
 
