@@ -16,7 +16,10 @@ export default defineConfig(({ mode }) => {
         }
       },
       server: {
-        open: true  // Öffnet automatisch den Browser mit der Local-URL
+        port: 3000,  // Use a specific port to avoid conflicts
+        open: true,  // Öffnet automatisch den Browser mit der Local-URL
+        hmr: true,  // Let Vite automatically handle HMR port
+        strictPort: false  // Allow port change if 3000 is in use
       }
     };
 });
